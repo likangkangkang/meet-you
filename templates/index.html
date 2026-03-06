@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meet You - 一眼是你，满目是你</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        
+        #slideshow {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        #slideshow img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            position: absolute;
+        }
+        
+        #slideshow img.active {
+            opacity: 1;
+        }
+        
+        #welcome {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            z-index: 10;
+        }
+        
+        #welcome h1 {
+            font-size: 3rem;
+            font-weight: 300;
+            margin-bottom: 1rem;
+            letter-spacing: 0.2em;
+        }
+        
+        #welcome p {
+            font-size: 1.5rem;
+            font-weight: 200;
+            opacity: 0.8;
+            letter-spacing: 0.1em;
+        }
+        
+        #welcome.hidden {
+            display: none;
+        }
+        
+        #viewer-badge {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.9rem;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        #viewer-badge.active {
+            display: flex;
+        }
+        
+        #viewer-badge .icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        #viewer-badge .text {
+            font-weight: 500;
+        }
+        
+        #camera-control {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        
+        #camera-btn {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        #camera-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+         transform: translateY(-2px);
+        }
+        
+        #camera-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        #camera-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+        }
+        
+        #camera-btn.active #camera-status {
+            background: #44ff44;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 1.2rem;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewer-badge">
+        <div class="icon">✓</div>
+        <div class="text">识别中...</div>
+    </div>
+    
+    <div id="camera-control">
+        <button id="camera-btn">
+            <div id="camera-status"></div>
+            <span id="camera-text">开启识别</span>
+        </button>
+    </div>
+    
+    <div id="slideshow">
+        <div id="welcome">
+            <h1>Meet You</h1>
+            <p>一眼是你，满目是你</p>
+        </div>
+        <div id="loading">加载中...</div>
+    </div>
+
+    <script>
+        console.log('脚本开始执行');
+        
+        const socket = io();
+        let allPhotos = [];
+        let currentPhotos = [];
+        let currentIndex = 0;
+        let slideshowInterval = null;
+        let cameraEnabled = false;
+        const displayTime = {{ display_time }} * 1000;
+        
+        console.log('Socket.io 初始化完成');
+        
+        // 摄像头控制
+        function toggleCamera() {
+            console.log('toggleCamera 被调用，当前状态:', cameraEnabled);
+            cameraEnabled = !cameraEnabled;
+            const btn = document.getElementById('camera-btn');
+            const text = document.getElementById('camera-text');
+            
+            if (cameraEnabled) {
+                console.log('开启摄像头');
+                btn.classList.add('active');
+                text.textContent = '识别中';
+                socket.emit('start_camera');
+            } else {
+                console.log('关闭摄像头');
+                btn.classList.remove('active');
+                text.textContent = '开启识别';
+                socket.emit('stop_camera');
+                
+                // 恢复显示所有照片
+                document.getElementById('viewer-badge').classList.remove('active');
+                startSlideshow(allPhotos);
+            }
+        }
+        
+        // 绑定按钮点击事件
+        document.getElementById('camera-btn').addEventListener('click', function() {
+            console.log('按钮被点击');
+            toggleCamera();
+        });
+        
+        // 加载照片列表
+        console.log('开始加载照片...');
+        fetch('/api/photos')
+            .then(response => {
+                console.log('API 响应:', response);
+                return response.json();
+            })
+            .then(data => {
+                console.log('照片列表:', data);
+                allPhotos = data;
+                document.getElementById('loading').style.display = 'none';
+                
+                if (allPhotos.length === 0) {
+                    document.getElementById('welcome').innerHTML = 
+                        '<h1>Meet You</h1><p>请将照片放入 photos 目录</p>';
+                    return;
+                }
+                
+                // 开始默认轮播（所有照片）
+                console.log('开始轮播');
+                startSlideshow(allPhotos);
+            })
+            .catch(error => {
+                console.error('加载照片失败:', error);
+                document.getElementById('loading').textContent = '加载失败: ' + error.message;
+            });
+        
+        // 监听观看者变化
+        socket.on('viewer_changed', (data) => {
+            console.log('观看者变化:', data);
+            const badge = document.getElementById('viewer-badge');
+            
+            if (data.viewer && data.photos && data.photos.length > 0) {
+                // 有观看者，显示匹配的照片
+                badge.querySelector('.text').textContent = data.viewer;
+                badge.classList.add('active');
+                
+                // 切换到匹配的照片
+                startSlideshow(data.photos);
+            } else {
+                // 无观看者，显示所有照片
+                badge.classList.remove('active');
+                startSlideshow(allPhotos);
+            }
+        });
+        
+        function startSlideshow(photos) {
+            console.log('startSlideshow 被调用，照片数量:', photos.length);
+            
+            // 停止当前轮播
+            if (slideshowInterval) {
+                clearInterval(slideshowInterval);
+            }
+            
+            if (!photos || photos.length === 0) {
+                return;
+            }
+            
+            currentPhotos = photos;
+            currentIndex = 0;
+            
+            // 清空现有图片
+            const slideshow = document.getElementById('slideshow');
+            const existingImages = slideshow.querySelectorAll('img');
+            existingImages.forEach(img => img.remove());
+            
+            // 预加载新照片
+            currentPhotos.forEach(photo => {
+                const img = document.createElement('img');
+                img.src = `/photos/${photo}`;
+                img.onload = () => console.log('照片加载成功:', photo);
+                img.onerror = () => console.error('照片加载失败:', photo);
+                slideshow.appendChild(img);
+            });
+            
+            // 隐藏欢迎信息
+            document.getElementById('welcome').classList.add('hidden');
+            
+            // 显示第一张
+            showPhoto(0);
+            
+            // 开始轮播
+            slideshowInterval = setInterval(() => {
+                currentIndex = (currentIndex + 1) % currentPhotos.length;
+                showPhoto(currentIndex);
+            }, displayTime);
+        }
+        
+        function showPhoto(index) {
+            const images = document.querySelectorAll('#slideshow img');
+            
+            // 隐藏所有图片
+            images.forEach(img => img.classList.remove('active'));
+            
+            // 显示当前图片
+            if (images[index]) {
+                images[index].classList.add('active');
+                console.log('显示照片:', index);
+            }
+        }
+        
+        // 按 ESC 退出全屏
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+        
+        // 点击进入全屏
+        document.getElementById('slideshow').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            }
+        });
+        
+        console.log('所有事件监听器已绑定');
+    </script>
+</body>
+</html>
