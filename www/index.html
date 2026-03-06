@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meet You - 一眼是你，满目是你</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        
+        #slideshow {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        #slideshow img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            position: absolute;
+        }
+        
+        #slideshow img.active {
+            opacity: 1;
+        }
+        
+        #welcome {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            z-index: 10;
+        }
+        
+        #welcome h1 {
+            font-size: 3rem;
+            font-weight: 300;
+            margin-bottom: 1rem;
+            letter-spacing: 0.2em;
+        }
+        
+        #welcome p {
+            font-size: 1.5rem;
+            font-weight: 200;
+            opacity: 0.8;
+            letter-spacing: 0.1em;
+        }
+        
+        #welcome.hidden {
+            display: none;
+        }
+        
+        #upload-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+        
+        #upload-btn:active {
+            transform: scale(0.95);
+        }
+        
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="slideshow">
+        <div id="welcome">
+            <h1>Meet You</h1>
+            <p>一眼是你，满目是你</p>
+            <p style="font-size: 1rem; margin-top: 2rem; opacity: 0.6;">点击右下角 + 添加照片</p>
+        </div>
+    </div>
+    
+    <button id="upload-btn">+</button>
+    <input type="file" id="file-input" accept="image/*" multiple>
+
+    <script>
+        let photos = [];
+        let currentIndex = 0;
+        let slideshowInterval = null;
+        const displayTime = 5000; // 5秒
+        
+        // 从 localStorage 加载照片
+        function loadPhotos() {
+            const saved = localStorage.getItem('meetyou_photos');
+            if (saved) {
+                photos = JSON.parse(saved);
+                consolg('加载了', photos.length, '张照片');
+                if (photos.length > 0) {
+                    startSlideshow();
+                }
+            }
+        }
+        
+        // 保存照片到 localStorage
+        function savePhotos() {
+            localStorage.setItem('meetyou_photos', JSON.stringify(photos));
+        }
+        
+        // 上传照片
+        document.getElementById('upload-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+        
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            const files = e.target.files;
+            let loaded = 0;
+            
+            for (let file of files) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    photos.push(event.target.result);
+                    loaded++;
+                    
+                    if (loaded === files.length) {
+                        savePhotos();
+                        if (photos.length === files.length) {
+                            // 第一次添加照片
+                            startSlideshow();
+                        }
+                        console.log('添加了', files.length, '张照片');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        function startSlideshow() {
+            if (!photos || photos.length === 0) return;
+            
+            // 隐藏欢迎信息
+            document.getElementById('welcome').classList.add('hidden');
+            
+            // 清空现有图片
+            const slideshow = document.getElementById('slideshow');
+            const existingImages = slideshow.querySelectorAll('img');
+            existingImages.forEach(img => img.remove());
+            
+            // 创建图片元素
+            photos.forEach(photoData => {
+                const img = document.createElement('img');
+                img.src = photoData;
+                slideshow.appendChild(img);
+            });
+            
+            // 显示第一张
+            showPhoto(0);
+            
+            // 开始轮播
+            if (slideshowInterval) {
+                clearInterval(slideshowInterval);
+            }
+            slideshowInterval = setInterval(() => {
+                currentIndex = (currentIndex + 1) % photos.length;
+                showPhoto(currentIndex);
+            }, displayTime);
+        }
+        
+        function showPhoto(index) {
+            const images = document.querySelectorAll('#slideshow img');
+            images.forEach(img => img.classList.remove('active'));
+            if (images[index]) {
+                images[index].classList.add('active');
+            }
+        }
+        
+        // 页面加载时加载照片
+        loadPhotos();
+    </script>
+</body>
+</html>

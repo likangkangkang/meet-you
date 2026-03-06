@@ -1,0 +1,26 @@
+{
+  "name": "meet-you",
+  "version": "1.0.0",
+  "description": "一眼是你，满目是你",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/likangkangkang/meet-you.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/likangkangkang/meet-you/issues"
+  },
+  "homepage": "https://github.com/likangkangkang/meet-you#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0"
+  }
+}

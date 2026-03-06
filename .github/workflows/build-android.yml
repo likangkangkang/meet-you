@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Capacitor)
 
 on:
   push:
@@ -12,49 +12,32 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
       with:
-        python-version: '3.9'
+        node-version: '18'
 
     - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          python3-pip \
-          build-essential \
-          git \
-          ffmpeg \
-          libsdl2-dev \
-          libsdl2-image-dev \
-          libsdl2-mixer-dev \
-          libsdl2-ttf-dev \
-          libportmidi-dev \
-          libswscale-dev \
-          libavformat-dev \
-          libavcodec-dev \
-          zlib1g-dev \
-          libgstreamer1.0-dev \
-          gstreamer1.0-plugins-base \
-          gstreamer1.0-plugins-good \
-          openjdk-17-jdk \
-          unzip \
-          cmake \
-          ninja-build
+        npm install
 
-    - name: Install Buildozer
-      run: |
-        pip3 install --upgrade pip
-        pip3 install --upgrade buildozer
-        pip3 install --upgrade cython
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
 
     - name: Build APK
       working-directory: ./android
       run: |
-        buildozer android debug
+        chmod +x gradlew
+        ./gradlew assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: meet-you-debug.apk
-        path: ./android/bin/*.apk
+        path: ./android/app/build/outputs/apk/debug/*.apk
