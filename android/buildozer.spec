@@ -46,8 +46,8 @@ orientation = portrait
 # 全屏模式
 fullscreen = 0
 
-# Python 依赖
-requirements = python3,kivy,kivymd,pillow,opencv-python,face-recognition,numpy
+# Python 依赖（移除 face_recognition 和 opencv）
+requirements = python3,kivy,kivymd,pillow
 
 # Android 架构
 android.archs = arm64-v8a,armeabi-v7a
